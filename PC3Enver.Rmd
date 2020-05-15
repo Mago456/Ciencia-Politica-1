@@ -1,0 +1,51 @@
+```{r}
+install.packages("htmltab")
+library(htmltab)
+```
+
+url1 = "https://www.cia.gov/library/publications/resources/the-world-factbook/fields/223.html" 
+
+cia1 = htmltab(doc = url1, 
+               which ='//*[@id="fieldListing"]', #herramientas de desarrollador
+               encoding = "UTF-8") 
+url2 = "https://www.cia.gov/library/publications/resources/the-world-factbook/fields/225.html" 
+
+cia2 = htmltab(doc = url2, 
+               which ='//*[@id="fieldListing"]', #herramientas de desarrollador
+               encoding = "UTF-8") 
+
+#a
+names(cia1) = c("Pais", "PBI")
+names(cia2) = c("Pais", "PBI")
+#b
+table(cia1$PBI,useNA ='always') #quiero ver los NAs
+table(cia2$PBI,useNA ='always') #quiero ver los NAs
+
+
+install.packages("stringr")
+library(stringr)
+library(readr)
+install.packages("readr")
+
+#c
+library(stringr)
+
+str_extract_all(cia1$PBI,pattern="(\\-*\\d+\\.*\\d*)(?=\\%)")
+head(cia1)
+
+library(readr)
+parse_number(cia2$PBI)
+head(cia2)
+
+
+
+#d
+
+cia1$PBI = as.numeric(cia1$PBI)
+cia2$PBI = as.numeric(cia2$PBI)
+
+#junto
+
+Base_final=merge(cia1,cia2,by.x='Pais', by.y='Pais') 
+
+####
