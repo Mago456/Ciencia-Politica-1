@@ -1,0 +1,57 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+```{r}
+library(htmltab)
+library(stringr) #para limpieza de columnas (extracción de numeros, particiones)
+library(readr) 
+library(rio)
+```
+importo mi base de github 
+```{r}
+Dataprovincias= "https://github.com/Mago456/Ciencia-Politica-1/raw/master/Provincias.xlsx"
+Provincias=import(Dataprovincias)
+```
+
+revisamos la data
+```{r}
+names(Provincias)
+str(Provincias)
+```
+todo esta bien en número, por tal solo voy separar los nombres y eliminar la columna código
+```{r}
+Provincias$Código=NULL
+```
+Cambio nombre de provincia 
+Separo por nombres para que este más ordenado, asi que la separo de la fila si tiene  
+`
+Creamos una nueva Variable
+```{r}
+Provincias$Regiones=str_split(string = Provincias$Provincia,
+         pattern = ',',
+         simplify = T)[,1]
+```
+Ahora saco las provincias de las region y le pongo de nombre Prov
+```{r}
+Provincias$Prov=str_split(string = Provincias$Provincia,
+         pattern = ':',
+         simplify = T)[,2]
+```
+
+antes de finalizar elimino la columna sucia 
+
+```{r}
+Provincias$Provincia=NULL
+```
+Finalmente ordeno el data frame creando un nuevo nombre de la data y poniendo las columnas que quiero en su lugar
+
+```{r}
+ProvinciasOrdenado=Provincias[,c(6,7,1,2,3,4,5)]
+```
+
+
+
+
