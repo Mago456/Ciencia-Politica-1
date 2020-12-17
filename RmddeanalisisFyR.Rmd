@@ -1,0 +1,331 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+library(htmltab)
+library(stringr)
+library(readr)
+library(car)
+library(tidyr)
+library(factoextra)
+library(cluster)
+library(rio)
+library(magrittr)
+library(plyr)
+install.packages("ggrepel")
+library(ggplot2)
+library(ggrepel)
+install.packages("fpc")
+library(dbscan)
+library(fpc)
+```
+
+```{r}
+library(rio)
+DataFinal<- import("https://github.com/Mago456/Ciencia-Politica-1/raw/master/Datatrabajadamejor.xlsx")
+head(DataFinal)
+```
+
+
+Realizamos un subset y nos quedamos con las variables que utilizaremos. Lo llamaremos **subdata**:
+
+```{r}
+subdata<- DataFinal[,c(3:6)]
+```
+
+1.- Matriz de correlaciones
+```{r}
+library(polycor)
+matriz<-hetcor(subdata)
+matriz_corr<- matriz$correlations
+library(ggcorrplot)
+ggcorrplot(matriz_corr)
+```
+```{r}
+ggcorrplot(matriz_corr,
+           p.mat = cor_pmat(matriz_corr),
+           insig = "blank")
+```
+
+#según vemos en la matriz casi todos estan correlacionados positivamente, donde las mayores correlaciones postivas son de poblacion rural con sin agua y desague; así como desnutrición con rural;niños que trabajan con inasistencia escolar;sinagua con rural y desnutrición; sin desague con rural y con agua, lo que de cierta forma tiene sentido con la relaidad que se vive
+
+## Paso 2: Diagnóstico de nuestra matríz de correlaciones
+
+Primero, verificar si datos permiten factorizar:
+
+```{r}
+library(psych)
+KMO(matriz_corr) 
+```
+
+Segundo, verificar si la matriz de correlaciones es adecuada. Para ello, se tienen dos funciones:
+
+- Test de Bartlett: H0: La matriz de correlacion es una matriz identidad.
+Buscamos rechazar la H0, por eso esperamos que sea signifitivo (False)
+
+```{r}
+cortest.bartlett(matriz_corr,n=nrow(subdata))$p.value>0.05
+```
+
+- Test For Singular Square Matrix: H0: La matriz de correlacion es una matriz singular.
+Buscamos que sea False.
+
+```{r}
+library(matrixcalc)
+is.singular.matrix(matriz_corr)
+```
+#Vemos que KMO de es 0.83 mayor que 0.5, por lo que se puede asumir que de cierta forma que la relación entre variables es muy alta, en los test se reclaza la hipotesis nula, es decir no es una matriz singular ni identidad, por lo que podemos continuar con nuestro analisis
+
+## Paso 3: Identificamos el número recomendado de factores y solicitamos el EFA
+
+Determinar en cuantos factores o variables latentes podríamos redimensionar la data. Vemos el número sugerido y también el gráfico. 
+
+```{r}
+fa.parallel(subdata,fm = 'ML', fa = 'fa')
+```
+
+Solicitamos el número de factores.
+Considerar si se presentan mensajes de alerta. 
+
+```{r}
+library(GPArotation)
+factorial <- fa(subdata,nfactors = 2,cor = 'mixed',rotate = "varimax",fm="minres")
+```
+
+#El número de factores recomendados es 2
+
+
+## Paso 4: Visualizamos el EFA solicitado
+
+Vemos el resultado inicial:
+
+```{r}
+print(factorial$loadings)
+```
+
+Vemos el resultado mejorado: Cuando logramos que cada variable se vaya a un factor, tenemos una estructura simple.
+
+```{r}
+print(factorial$loadings,cutoff = 0.5)
+```
+# Con 0.5 vemos que en rural, sin agua, sin desague y desnutrición cronica tienen los mayores aportes
+Podemos visualizar los variables y su relación con las latentes creadas:
+
+```{r}
+fa.diagram(factorial)
+```
+#En el grafico vemos como las varibales se acomodan a los factores creados por lo que es conforme
+
+
+## Paso 5: Evaluamos el Análisis Factorial Exploratorio solicitado
+
+- ¿La Raíz del error cuadrático medio corregida está cerca a cero?
+
+```{r}
+factorial$crms
+```
+
+- ¿La Raíz del error cuadrático medio de aproximación es menor a 0.05?
+
+```{r}
+factorial$RMSEA
+```
+
+- ¿El índice de Tucker-Lewis es mayor a 0.9?
+
+```{r}
+factorial$TLI
+```
+#aqui sale mayor que 0.9 por lo que hay un buen ajuste
+- ¿Qué variables aportaron mas a los factores?
+```{r}
+sort(factorial$communality)
+```
+
+- ¿Qué variables contribuyen a mas de un factor?
+```{r}
+sort(factorial$complexity)
+```
+#La varibale que más aporta es Combustible 
+
+
+## Paso 6: Posibles valores proyectados
+
+#creamos lo factores y agregamos los descriptivos a la tabla
+```{r}
+factorial_casos<-as.data.frame(factorial$scores)
+head(factorial_casos)
+summary(factorial_casos)
+```
+
+o incluirlos en nuestro subset original
+
+```{r}
+subdata$factor1<- factorial_casos$MR1
+subdata$factor2<- factorial_casos$MR2
+#al final lo incluimos en nuestra tabla subdata
+```
+#vemos que la media de los factores es 0.5 y el la otra es - 0.004
+
+#ANALISIS DE REGRESIÓN MULTIPLE
+
+
+
+
+```{r}
+datapararegesion= "https://github.com/Mago456/Ciencia-Politica-1/raw/master/Datatrabajadamejor.xlsx"
+Data=import(datapararegesion)
+```
+
+#primero nos finjamos en la matriz de correlaciones
+
+```{r}
+Data[,c(1,2)]=NULL
+library(polycor)
+matriz<-hetcor(Data)
+matriz_corr<- matriz$correlations
+```
+
+
+#Modelo 1
+
+```{r}
+modelo3=lm(Votos_Mendoza~Porcentaje_no_tiene_seguro+Porcentaje_NO_tiene_acceso_a_internet+Porcentaje_no_sabe_leer_ni_escribir,data=Data)
+summary(modelo3)
+```
+```{r}
+modelo3$coefficients
+```
+
+#1.linealidad 
+```{r}
+#MEJOR MODELO: modelo 3
+plot(modelo3,1)
+```
+#vemos que según la grafica no cumple con linealidad no se apega a la recta
+
+#2.Homocedasticidad
+
+```{r}
+plot(modelo3,3)
+```
+
+#no tenemos la linea horizontal no se cumple homocedasticidad
+#breuschpagan
+```{r}
+library(lmtest)
+bptest(modelo3) #H0:El modelo es homocedastico
+```
+
+
+#3. Normalidad de los residuos 
+```{r}
+plot(modelo3,2)
+```
+#estan masomenos pegados a la linea pero no se ve mucha normalidad probamos con el test
+```{r}
+shapiro.test(modelo3$residuals) #H0:Tiene distribución normal (pvalue)
+```
+
+#por el test de shapiro se concluye que no tiene distribución normal
+#4. No multicolinialidad 
+
+
+```{r}
+library(DescTools)
+VIF(modelo3)
+```
+#5.Valores influyentes 
+
+```{r}
+plot(modelo3,5)
+```
+# si tenemos casos influyentes: (77,101,149)
+
+```{r}
+chekmodelo3=as.data.frame(influence.measures(modelo3)$is.inf)
+head(chekmodelo3)
+```
+
+
+
+#Modelo 2
+
+```{r}
+modelo4=lm(Votos_Mendoza~Porcentaje_no_tiene_seguro+Porcentaje_NO_tiene_acceso_a_internet+Porcentaje_no_sabe_leer_ni_escribir+Porcentaje_Combustible_contaminante,data=Data)
+summary(modelo4)
+```
+```{r}
+modelo4$coefficients
+```
+
+
+#1.linealidad 
+```{r}
+#MEJOR MODELO: modelo 4
+plot(modelo4,1)
+```
+#vemos que según la gráfica no cumple con linealidad no se apega a la recta
+
+#2.Homocedasticidad
+
+```{r}
+plot(modelo4,3)
+```
+
+#no tenemos la linea horizontal no se cumple homocedasticidad
+#breuschpagan
+```{r}
+library(lmtest)
+bptest(modelo4) #H0:El modelo es homocedastico
+```
+# Confirmamos que no cumple normalidad
+
+#3. Normalidad de los residuos 
+```{r}
+plot(modelo4,2)
+```
+#estan masomenos pegados a la linea pero no se ve mucha normalidad probamos con el test
+```{r}
+shapiro.test(modelo4$residuals) #H0:Tiene distribución normal (pvalue)
+```
+
+#por el test de shapiro se concluye que no tiene distribución normal
+#4. No multicolinialidad 
+
+
+```{r}
+library(DescTools)
+VIF(modelo4)
+```
+#5.Valores influyentes 
+
+```{r}
+plot(modelo4,5)
+```
+# si tenemos casos influyentes: (101,110)
+
+# vemos donde estan los valores influyentes
+```{r}
+chekmodelo4=as.data.frame(influence.measures(modelo4)$is.inf)
+
+```
+
+
+#comparamos modelos
+
+#Avona
+
+```{r}
+anova(modelo3, modelo4)
+```
+
+#R2 ajustado
+
+```{r}
+library(stargazer)
+stargazer(modelo3,modelo4, type="text",summary=F)
+```
