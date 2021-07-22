@@ -1,1 +1,0 @@
-# Ciencia-Politica-1
